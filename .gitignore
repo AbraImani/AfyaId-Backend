@@ -1,0 +1,12 @@
+.env
+.env.*
+afya-id-firebase-adminsdk-fbsvc-2832f952d5.json
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+.DS_Store

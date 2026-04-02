@@ -1,0 +1,369 @@
+"""
+Patient Firestore service layer.
+
+Handles all CRUD operations for the 'patients' collection.
+Patients are separate from staff users and are registered by Health Workers.
+"""
+
+import uuid
+import logging
+from datetime import datetime
+from typing import Optional, Dict, Any, List
+
+from services.firebase_service import get_db, _should_use_local_fallback, _activate_local_fallback
+
+logger = logging.getLogger(__name__)
+
+
+# ── Patient CRUD Operations ─────────────────────────────────────
+
+async def create_patient(patient_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Create a new patient document in the 'patients' collection.
+
+    If no patientId is provided, one is auto-generated.
+    If esignetSubjectId is provided, it is used as the document ID
+    to guarantee 1:1 mapping between verified identity and patient record.
+
+    Args:
+        patient_data: Dict containing patient fields.
+
+    Returns:
+        The created patient data dict with patientId and timestamps.
+    """
+    try:
+        db = get_db()
+
+        # Determine document ID
+        # If patient was verified via eSignet, use esignetSubjectId as ID
+        # Otherwise generate a unique ID
+        patient_id = patient_data.get("patientId")
+        if not patient_id:
+            esignet_sub = patient_data.get("esignetSubjectId")
+            patient_id = esignet_sub if esignet_sub else f"PAT-{uuid.uuid4().hex[:12]}"
+            patient_data["patientId"] = patient_id
+
+        # Set timestamps
+        now = datetime.utcnow().isoformat()
+        patient_data["createdAt"] = now
+        patient_data["updatedAt"] = now
+
+        # Set defaults
+        patient_data.setdefault("isActive", True)
+        patient_data.setdefault("identityStatus", "PENDING")
+        patient_data.setdefault("kycStatus", "PENDING")
+        patient_data.setdefault("registrationSource", "manual")
+        patient_data.setdefault("allergies", [])
+        patient_data.setdefault("chronicConditions", [])
+        patient_data.setdefault("medications", [])
+
+        db.collection("patients").document(patient_id).set(patient_data)
+        logger.info(f"Patient created in Firestore: {patient_id}")
+        return patient_data
+
+    except Exception as e:
+        if _should_use_local_fallback(e):
+            _activate_local_fallback(e)
+            db = get_db()
+            patient_id = patient_data.get("patientId")
+            if not patient_id:
+                esignet_sub = patient_data.get("esignetSubjectId")
+                patient_id = esignet_sub if esignet_sub else f"PAT-{uuid.uuid4().hex[:12]}"
+                patient_data["patientId"] = patient_id
+
+            now = datetime.utcnow().isoformat()
+            patient_data["createdAt"] = now
+            patient_data["updatedAt"] = now
+            patient_data.setdefault("isActive", True)
+            patient_data.setdefault("identityStatus", "PENDING")
+            patient_data.setdefault("kycStatus", "PENDING")
+            patient_data.setdefault("registrationSource", "manual")
+            patient_data.setdefault("allergies", [])
+            patient_data.setdefault("chronicConditions", [])
+            patient_data.setdefault("medications", [])
+            db.collection("patients").document(patient_id).set(patient_data)
+            logger.info(f"Patient created in local fallback store: {patient_id}")
+            return patient_data
+        logger.error(f"Error creating patient: {e}")
+        raise
+
+
+async def get_patient(patient_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieve a patient document by its document ID.
+
+    Args:
+        patient_id: The patient's unique document ID.
+
+    Returns:
+        Patient data dict if found, None otherwise.
+    """
+    try:
+        db = get_db()
+        doc = db.collection("patients").document(patient_id).get()
+        if doc.exists:
+            logger.info(f"Patient found: {patient_id}")
+            return doc.to_dict()
+        logger.info(f"Patient not found: {patient_id}")
+        return None
+    except Exception as e:
+        if _should_use_local_fallback(e):
+            _activate_local_fallback(e)
+            db = get_db()
+            doc = db.collection("patients").document(patient_id).get()
+            if doc.exists:
+                return doc.to_dict()
+            return None
+        logger.error(f"Error fetching patient {patient_id}: {e}")
+        raise
+
+
+async def get_patient_by_esignet_sub(esignet_sub: str) -> Optional[Dict[str, Any]]:
+    """Find a patient by their eSignet subject ID.
+
+    Used to check if a patient with this verified identity already exists,
+    preventing duplicate registrations.
+
+    Args:
+        esignet_sub: The eSignet 'sub' claim value.
+
+    Returns:
+        Patient data dict if found, None otherwise.
+    """
+    try:
+        db = get_db()
+        query = (
+            db.collection("patients")
+            .where("esignetSubjectId", "==", esignet_sub)
+            .limit(1)
+        )
+        results = query.get()
+        for doc in results:
+            logger.info(f"Patient found by esignetSubjectId: {esignet_sub}")
+            return doc.to_dict()
+        return None
+    except Exception as e:
+        if _should_use_local_fallback(e):
+            _activate_local_fallback(e)
+            db = get_db()
+            query = (
+                db.collection("patients")
+                .where("esignetSubjectId", "==", esignet_sub)
+                .limit(1)
+            )
+            results = query.get()
+            for doc in results:
+                return doc.to_dict()
+            return None
+        logger.error(f"Error querying patient by esignetSubjectId: {e}")
+        raise
+
+
+async def update_patient(patient_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Update specific fields of a patient document.
+
+    Automatically sets the 'updatedAt' timestamp.
+
+    Args:
+        patient_id: The patient's unique document ID.
+        data: Dict of fields to update.
+
+    Returns:
+        The full updated patient data dict.
+
+    Raises:
+        ValueError: If patient does not exist.
+    """
+    try:
+        db = get_db()
+
+        # Verify patient exists
+        doc_ref = db.collection("patients").document(patient_id)
+        if not doc_ref.get().exists:
+            raise ValueError(f"Patient not found: {patient_id}")
+
+        # Always update the timestamp
+        data["updatedAt"] = datetime.utcnow().isoformat()
+
+        doc_ref.update(data)
+        logger.info(f"Patient updated: {patient_id}")
+
+        # Return the full updated document
+        updated_doc = doc_ref.get()
+        return updated_doc.to_dict()
+
+    except Exception as e:
+        if _should_use_local_fallback(e):
+            _activate_local_fallback(e)
+            db = get_db()
+            doc_ref = db.collection("patients").document(patient_id)
+            if not doc_ref.get().exists:
+                raise ValueError(f"Patient not found: {patient_id}")
+            data["updatedAt"] = datetime.utcnow().isoformat()
+            doc_ref.update(data)
+            updated_doc = doc_ref.get()
+            return updated_doc.to_dict()
+        logger.error(f"Error updating patient {patient_id}: {e}")
+        raise
+
+
+async def check_patient_national_id_unique(
+    national_id: str, exclude_patient_id: Optional[str] = None
+) -> bool:
+    """Check if a nationalId is unique across all patients.
+
+    Args:
+        national_id: The national ID to check.
+        exclude_patient_id: Optional patient ID to exclude (for updates).
+
+    Returns:
+        True if the nationalId is unique (not found), False if duplicate.
+    """
+    try:
+        db = get_db()
+        query = (
+            db.collection("patients")
+            .where("nationalId", "==", national_id)
+            .limit(2)
+        )
+        results = query.get()
+
+        for doc in results:
+            if exclude_patient_id and doc.id == exclude_patient_id:
+                continue
+            logger.warning(
+                f"Patient nationalId {national_id} already exists: {doc.id}"
+            )
+            return False
+
+        return True
+    except Exception as e:
+        if _should_use_local_fallback(e):
+            _activate_local_fallback(e)
+            db = get_db()
+            query = (
+                db.collection("patients")
+                .where("nationalId", "==", national_id)
+                .limit(2)
+            )
+            results = query.get()
+            for doc in results:
+                if exclude_patient_id and doc.id == exclude_patient_id:
+                    continue
+                return False
+            return True
+        logger.error(f"Error checking patient nationalId uniqueness: {e}")
+        raise
+
+
+async def check_esignet_sub_unique(
+    esignet_sub: str, exclude_patient_id: Optional[str] = None
+) -> bool:
+    """Check if an esignetSubjectId is unique across all patients.
+
+    Args:
+        esignet_sub: The eSignet subject ID to check.
+        exclude_patient_id: Optional patient ID to exclude.
+
+    Returns:
+        True if unique, False if duplicate.
+    """
+    try:
+        db = get_db()
+        query = (
+            db.collection("patients")
+            .where("esignetSubjectId", "==", esignet_sub)
+            .limit(2)
+        )
+        results = query.get()
+
+        for doc in results:
+            if exclude_patient_id and doc.id == exclude_patient_id:
+                continue
+            return False
+
+        return True
+    except Exception as e:
+        if _should_use_local_fallback(e):
+            _activate_local_fallback(e)
+            db = get_db()
+            query = (
+                db.collection("patients")
+                .where("esignetSubjectId", "==", esignet_sub)
+                .limit(2)
+            )
+            results = query.get()
+            for doc in results:
+                if exclude_patient_id and doc.id == exclude_patient_id:
+                    continue
+                return False
+            return True
+        logger.error(f"Error checking esignetSubjectId uniqueness: {e}")
+        raise
+
+
+def build_patient_summary(patient_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Build a medical summary view for Doctors.
+
+    Includes all medically relevant fields needed for patient care.
+
+    Args:
+        patient_data: Full patient document from Firestore.
+
+    Returns:
+        Filtered dict with medical summary fields.
+    """
+    return {
+        "patientId": patient_data.get("patientId"),
+        "fullName": patient_data.get("fullName"),
+        "dateOfBirth": patient_data.get("dateOfBirth"),
+        "gender": patient_data.get("gender"),
+        "bloodType": patient_data.get("bloodType"),
+        "allergies": patient_data.get("allergies", []),
+        "chronicConditions": patient_data.get("chronicConditions", []),
+        "medications": patient_data.get("medications", []),
+        "emergencyContact": patient_data.get("emergencyContact"),
+        "hospital": patient_data.get("hospital"),
+        "identityStatus": patient_data.get("identityStatus", "PENDING"),
+        "isActive": patient_data.get("isActive", True),
+    }
+
+
+def build_patient_emergency(patient_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Build minimal emergency view for First Responders.
+
+    Contains ONLY what is needed in an emergency:
+    name, blood type, allergies, chronic conditions, emergency contact.
+
+    Args:
+        patient_data: Full patient document from Firestore.
+
+    Returns:
+        Filtered dict with emergency-only fields.
+    """
+    return {
+        "patientId": patient_data.get("patientId"),
+        "fullName": patient_data.get("fullName"),
+        "bloodType": patient_data.get("bloodType"),
+        "allergies": patient_data.get("allergies", []),
+        "chronicConditions": patient_data.get("chronicConditions", []),
+        "emergencyContact": patient_data.get("emergencyContact"),
+    }
+
+
+async def delete_patient(patient_id: str) -> None:
+    """Delete a patient document (used for testing cleanup).
+
+    Args:
+        patient_id: The patient's document ID.
+    """
+    try:
+        db = get_db()
+        db.collection("patients").document(patient_id).delete()
+        logger.info(f"Patient deleted: {patient_id}")
+    except Exception as e:
+        if _should_use_local_fallback(e):
+            _activate_local_fallback(e)
+            db = get_db()
+            db.collection("patients").document(patient_id).delete()
+            return
+        logger.error(f"Error deleting patient {patient_id}: {e}")
+        raise
