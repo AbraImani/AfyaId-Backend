@@ -103,8 +103,8 @@ flowchart TD
     B --> C{Identité eSignet ?}
     C -->|Oui| D[Statut identityStatus=VERIFIED]
     C -->|Non| E[Statut identityStatus=PENDING]
-    A --> F[PATCH /patients/{id}]
-    A --> G[POST /patients/{id}/verify/start]
+  A --> F[PATCH /patients/:patient_id]
+  A --> G[POST /patients/:patient_id/verify/start]
     G --> H[Retour vers eSignet]
     H --> I[GET /auth/callback]
     I --> J[Mise à jour patient Firestore]
