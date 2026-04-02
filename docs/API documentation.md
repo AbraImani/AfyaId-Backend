@@ -2,7 +2,9 @@
 
 ## 1. Introduction
 
-AfyaID est le backend qui gère l’authentification, les profils staff, les patients et les opérations de KYC.
+Cette documentation est celle qu’on utilise en équipe pour livrer l’API au client Flutter.
+
+AfyaID est notre backend pour gérer l’authentification, les profils staff, les patients et le flux KYC.
 
 En pratique, le backend fait trois choses principales :
 
@@ -10,7 +12,11 @@ En pratique, le backend fait trois choses principales :
 2. stocker et lire les données métier dans Firebase Firestore,
 3. protéger les accès selon le rôle de l’utilisateur.
 
-Pour l’équipe Flutter, l’idée simple est la suivante : Flutter appelle cette API, cette API parle à Firebase pour les données, et à eSignet pour l’identité quand le login réel est activé.
+Concrètement pour Flutter :
+
+- l’application mobile appelle cette API,
+- l’API lit/écrit dans Firebase,
+- l’API parle à eSignet dès qu’on a les credentials réels.
 
 ## 2. Architecture
 
@@ -121,17 +127,11 @@ flowchart TD
 
 ## 6. Base URL de production
 
-URL cible demandée :
-
-`https://afya-id.europe-west2.run.app`
-
-Important : Cloud Run génère normalement une URL de service propre au déploiement. Le nom ci-dessus est donc l’URL cible à viser côté produit, mais l’URL exacte exposée par Google peut être différente selon la configuration Cloud Run ou un éventuel mapping de domaine.
-
-Tous les endpoints devront rester accessibles depuis la base finale exposée en production.
-
-URL de production confirmée après déploiement :
+URL réelle en production (active aujourd’hui) :
 
 `https://afya-id-419586439350.europe-west2.run.app`
+
+Tous les endpoints documentés ici utilisent cette base URL.
 
 ## 7. Authentification des requêtes
 
@@ -658,34 +658,38 @@ Obligatoires :
 
 - `APP_ENV=production`
 - `ALLOW_FIREBASE_LOCAL_FALLBACK=false`
-- `FIREBASE_CREDENTIALS_JSON=/secrets/firebase.json`
-- `FIREBASE_PROJECT_ID=afya-id`
-- `ESIGNET_BASE_URL=...`
+- `FIREBASE_PROJECT_ID=afyaid-backend1`
+- `ESIGNET_BASE_URL=https://esignet-mock.collab.mosip.net`
 - `CLIENT_ID=...`
 - `CLIENT_SECRET=...`
-- `REDIRECT_URI=https://afya-id.europe-west2.run.app/auth/callback`
-- `APP_BASE_URL=https://afya-id.europe-west2.run.app`
+- `REDIRECT_URI=https://afya-id-419586439350.europe-west2.run.app/auth/callback`
+- `APP_BASE_URL=https://afya-id-419586439350.europe-west2.run.app`
 - `FRONTEND_URL=https://afya-id.web.app`
-- `ALLOWED_ORIGINS=https://afya-id.web.app,https://afya-id.europe-west2.run.app`
+- `ALLOWED_ORIGINS=https://afya-id.web.app,https://afya-id-419586439350.europe-west2.run.app`
 - `APP_SECRET_KEY=...`
+
+Remarque importante :
+
+- sur Cloud Run, `FIREBASE_CREDENTIALS_JSON` n’est pas obligatoire dans notre setup actuel,
+- le service utilise les Application Default Credentials du runtime (compte de service Cloud Run).
 
 ### Commandes de déploiement recommandées
 
 ```bash
-gcloud builds submit --tag europe-west2-docker.pkg.dev/PROJECT_ID/afyaid/afyaid-backend:prod
+gcloud builds submit --tag europe-west2-docker.pkg.dev/afyaid-backend1/afyaid/afyaid-backend:1.0.0
 gcloud run deploy afya-id \
-  --image europe-west2-docker.pkg.dev/PROJECT_ID/afyaid/afyaid-backend:prod \
+  --image europe-west2-docker.pkg.dev/afyaid-backend1/afyaid/afyaid-backend:1.0.0 \
   --region europe-west2 \
   --platform managed \
   --allow-unauthenticated \
-  --set-env-vars APP_ENV=production,ALLOW_FIREBASE_LOCAL_FALLBACK=false,FIREBASE_PROJECT_ID=afya-id,APP_BASE_URL=https://afya-id.europe-west2.run.app,FRONTEND_URL=https://afya-id.web.app
+  --set-env-vars APP_ENV=production,ALLOW_FIREBASE_LOCAL_FALLBACK=false,FIREBASE_PROJECT_ID=afyaid-backend1,ESIGNET_BASE_URL=https://esignet-mock.collab.mosip.net,APP_BASE_URL=https://afya-id-419586439350.europe-west2.run.app,REDIRECT_URI=https://afya-id-419586439350.europe-west2.run.app/auth/callback,FRONTEND_URL=https://afya-id.web.app,ALLOWED_ORIGINS=https://afya-id.web.app,https://afya-id-419586439350.europe-west2.run.app
 ```
 
 ### Vérification rapide après déploiement
 
 ```bash
-curl https://afya-id.europe-west2.run.app/
-curl https://afya-id.europe-west2.run.app/health
+curl https://afya-id-419586439350.europe-west2.run.app/
+curl https://afya-id-419586439350.europe-west2.run.app/health
 ```
 
 ## 13. Points à valider quand eSignet réel sera prêt
