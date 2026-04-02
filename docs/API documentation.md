@@ -2,9 +2,9 @@
 
 ## 1. Introduction
 
-Cette documentation est celle qu’on utilise en équipe pour livrer l’API au client Flutter.
+Cette documentation est là pour la compréhension de ce qui a été fait dans l'API pour une meilleure  intégration dans Flutter.
 
-AfyaID est notre backend pour gérer l’authentification, les profils staff, les patients et le flux KYC.
+l'API AfyaID est notre backend pour gérer l’authentification, les profils staff, les patients et le flux KYC.
 
 En pratique, le backend fait trois choses principales :
 
@@ -60,7 +60,7 @@ sequenceDiagram
     A-->>U: profil + tokens + statut KYC
 ```
 
-### Ce qui est déjà réel aujourd’hui
+### Ce qui est déjà réel maintenant 
 
 - la validation Firebase,
 - la création et la lecture des utilisateurs,
@@ -127,7 +127,7 @@ flowchart TD
 
 ## 6. Base URL de production
 
-URL réelle en production (active aujourd’hui) :
+URL de l'API en production :
 
 `https://afya-id-419586439350.europe-west2.run.app`
 
@@ -216,8 +216,8 @@ Réponse exemple staff :
   "token_type": "Bearer",
   "user": {
     "uid": "sub-123",
-    "email": "user@example.com",
-    "fullName": "Jean Dupont",
+    "email": "name@gmail.com",
+    "fullName": "Abraham Faith",
     "role": "DOCTOR",
     "kycStatus": "VERIFIED_BY_PROVIDER"
   },
@@ -239,8 +239,8 @@ Réponse exemple :
 {
   "user": {
     "uid": "sub-123",
-    "email": "user@example.com",
-    "fullName": "Jean Dupont",
+    "email": "name@gmail.com",
+    "fullName": "Abraham Imani",
     "role": "DOCTOR"
   },
   "kyc_status": "VERIFIED_BY_PROVIDER",
@@ -321,7 +321,7 @@ Body exemple :
 
 ```json
 {
-  "fullName": "Jean Dupont",
+  "fullName": "Abraham Faith",
   "hospital": "HGR Bukavu",
   "matriculeNumber": "MED-001",
   "contactPhone": "+243000000000"
@@ -355,7 +355,7 @@ Body exemple :
   "gender": "F",
   "phoneNumber": "+243000000001",
   "nationalId": "NAT-001",
-  "emergencyContact": "Paul M. +243000000002",
+  "emergencyContact": "Cimanuka Kobojo +243000000002",
   "bloodType": "O+",
   "allergies": ["Penicillin"],
   "chronicConditions": ["Hypertension"],
@@ -424,7 +424,7 @@ Réponse exemple :
     "gender": "F",
     "phoneNumber": "+243000000001",
     "nationalId": "NAT-001",
-    "emergencyContact": "Paul M. +243000000002",
+    "emergencyContact": "Cimanuka Kobojo +243000000002",
     "bloodType": "O+",
     "allergies": ["Penicillin"],
     "chronicConditions": ["Hypertension"],
@@ -599,7 +599,7 @@ Le backend expose un objet patient avec cette structure logique :
 ### Important pour Flutter
 
 - Les tableaux `allergies`, `chronicConditions` et `medications` doivent être lus comme des listes de chaînes.
-- Les champs `phoneNumber`, `bloodType` et `nationalId` peuvent être absents si le patient n’a pas ces données.
+- Les champs `phoneNumber`, `bloodType`,... peuvent être absents si le patient n’a pas ces données pour renforcer le KYC on pourra tester la vérification de OTP du numéro téléphone.
 - Les anciennes données Firestore peuvent contenir des noms legacy (`phone`, `bloodGroup`, `medAllergies`, `activeMedecines`).
 - Le backend doit normaliser ces cas avant exposition à Flutter si vous gardez ces anciens documents.
 
@@ -630,16 +630,16 @@ Le backend expose un objet patient avec cette structure logique :
 
 ## 11. Local vs Production
 
-### Ce qui est réel en production aujourd’hui
+### Ce qui est réel en production maintenant comme rappel
 
-- Firebase Firestore cloud,
+- Firebase Firestore,
 - création/lecture/mise à jour/suppression des patients,
 - création et lecture des utilisateurs staff,
 - RBAC,
 - KYC,
 - validation des routes protégées.
 
-### Ce qui reste mock tant que vous n’avez pas les vrais identifiants eSignet
+### Ce qui reste mock tant que nous attendons les credentials ou identifiants du projet en eSignet
 
 - `GET /auth/login`,
 - `GET /auth/callback`,
@@ -692,7 +692,7 @@ curl https://afya-id-419586439350.europe-west2.run.app/
 curl https://afya-id-419586439350.europe-west2.run.app/health
 ```
 
-## 13. Points à valider quand eSignet réel sera prêt
+## 13. Points à valider quand eSignet réel est prêt
 
 1. login réel avec `CLIENT_ID` / `CLIENT_SECRET`,
 2. callback réel avec `code` et `state`,
@@ -704,7 +704,7 @@ curl https://afya-id-419586439350.europe-west2.run.app/health
 
 ## 14. Résumé final
 
-- Firebase est réel.
-- Le fallback local est désactivé en production.
+- Firebase marche.
+- Le fallback local est désactivé pour cette api en production.
 - Les routes patient sont prêtes pour Flutter.
-- eSignet attend encore les vrais identifiants pour être validé en réel.
+- eSignet attend encore les vrais identifiants pour être validé.
