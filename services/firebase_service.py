@@ -143,6 +143,18 @@ def init_firebase() -> None:
     try:
         cred_path = settings.firebase_credentials_json.strip()
         if cred_path and os.path.exists(cred_path):
+            with open(cred_path, "r", encoding="utf-8") as fh:
+                service_account_payload = json.load(fh)
+
+            creds_project_id = (service_account_payload.get("project_id") or "").strip()
+            configured_project_id = (settings.firebase_project_id or "").strip()
+            if configured_project_id and creds_project_id and configured_project_id != creds_project_id:
+                raise ValueError(
+                    "Firebase configuration mismatch: "
+                    f"FIREBASE_PROJECT_ID={configured_project_id} "
+                    f"but credentials project_id={creds_project_id}."
+                )
+
             cred = credentials.Certificate(cred_path)
             firebase_admin.initialize_app(cred)
             logger.info("Initializing Firebase with service account file: %s", cred_path)

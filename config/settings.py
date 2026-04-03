@@ -16,7 +16,7 @@ load_dotenv()
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # ── eSignet OIDC Configuration ────────────────────────────────
+    # eSignet OIDC Configuration
     esignet_base_url: str = Field(
         default="https://esignet-mock.collab.mosip.net",
         description="Base URL for eSignet IdP (discovery auto-fetched)"
@@ -42,9 +42,9 @@ class Settings(BaseSettings):
         description="Expected JWT audience (defaults to client_id if empty)"
     )
 
-    # ── Firebase Configuration ────────────────────────────────────
+    # Firebase Configuration
     firebase_credentials_json: str = Field(
-        default="./afyaid-backend1-firebase-adminsdk-fbsvc-b17807b016.json",
+        default="./afya-id-firebase-adminsdk-fbsvc-2832f952d5.json",
         description="Path to Firebase service account JSON file"
     )
     firebase_project_id: str = Field(
@@ -60,7 +60,7 @@ class Settings(BaseSettings):
         description="Allow in-memory Firestore fallback when cloud is unavailable"
     )
 
-    # ── Application Settings ─────────────────────────────────────
+    # Application Settings
     frontend_url: str = Field(
         default="http://localhost:3000",
         description="Frontend URL for CORS and post-login redirect"
