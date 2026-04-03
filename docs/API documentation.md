@@ -658,7 +658,7 @@ Obligatoires :
 
 - `APP_ENV=production`
 - `ALLOW_FIREBASE_LOCAL_FALLBACK=false`
-- `FIREBASE_PROJECT_ID=afyaid-backend1`
+- `FIREBASE_PROJECT_ID=afya-id`
 - `ESIGNET_BASE_URL=https://esignet-mock.collab.mosip.net`
 - `CLIENT_ID=...`
 - `CLIENT_SECRET=...`
@@ -672,6 +672,7 @@ Remarque importante :
 
 - sur Cloud Run, `FIREBASE_CREDENTIALS_JSON` n’est pas obligatoire dans notre setup actuel,
 - le service utilise les Application Default Credentials du runtime (compte de service Cloud Run).
+- on déploie le service sur le projet GCP `afyaid-backend1`, mais les données Firestore sont dans le projet `afya-id`.
 
 ### Commandes de déploiement recommandées
 
@@ -682,7 +683,7 @@ gcloud run deploy afya-id \
   --region europe-west2 \
   --platform managed \
   --allow-unauthenticated \
-  --set-env-vars APP_ENV=production,ALLOW_FIREBASE_LOCAL_FALLBACK=false,FIREBASE_PROJECT_ID=afyaid-backend1,ESIGNET_BASE_URL=https://esignet-mock.collab.mosip.net,APP_BASE_URL=https://afya-id-419586439350.europe-west2.run.app,REDIRECT_URI=https://afya-id-419586439350.europe-west2.run.app/auth/callback,FRONTEND_URL=https://afya-id.web.app,ALLOWED_ORIGINS=https://afya-id.web.app,https://afya-id-419586439350.europe-west2.run.app
+  --set-env-vars APP_ENV=production,ALLOW_FIREBASE_LOCAL_FALLBACK=false,FIREBASE_PROJECT_ID=afya-id,ESIGNET_BASE_URL=https://esignet-mock.collab.mosip.net,APP_BASE_URL=https://afya-id-419586439350.europe-west2.run.app,REDIRECT_URI=https://afya-id-419586439350.europe-west2.run.app/auth/callback,FRONTEND_URL=https://afya-id.web.app,ALLOWED_ORIGINS=https://afya-id.web.app,https://afya-id-419586439350.europe-west2.run.app
 ```
 
 ### Vérification rapide après déploiement
