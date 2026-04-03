@@ -1,5 +1,6 @@
 .env
 .env.*
+!.env.example
 afya-id-firebase-adminsdk-fbsvc-2832f952d5.json
 __pycache__/
 *.pyc
