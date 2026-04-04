@@ -43,7 +43,18 @@ async def get_current_user(
     Raises:
         HTTPException(401): If token is missing, invalid, or expired.
     """
-    token = credentials.credentials
+    token = credentials.credentials.strip()
+
+    # Fail fast on malformed Bearer values to give a clear integration hint.
+    if token.count(".") != 2:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=(
+                "Malformed bearer token. Send the 'access_token' returned by /auth/callback "
+                "as: Authorization: Bearer <access_token>."
+            ),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     try:
         # Validate the access token using eSignet's JWKS
