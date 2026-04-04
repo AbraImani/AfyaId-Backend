@@ -1,0 +1,19 @@
+services:
+  mock-oidc:
+    build:
+      context: ./mock_idp
+    container_name: afyaid-mock-oidc
+    environment:
+      OIDC_ISSUER: http://localhost:9000
+      OIDC_HOST: 0.0.0.0
+      OIDC_PORT: 9000
+      USERS_FILE: /app/users.json
+      KEYS_DIR: /app/keys
+      OIDC_CLIENT_ID: afya-local-client
+      OIDC_CLIENT_SECRET: afya-local-secret
+      OIDC_REDIRECT_URI: http://localhost:8000/auth/callback
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./mock_idp/keys:/app/keys
+    restart: unless-stopped

@@ -242,5 +242,3 @@ Tu peux confirmer a l equipe Flutter que c est OK quand:
 - [ ] patients/{id}/emergency OK
 - [ ] admin endpoints OK
 - [ ] donnees visibles dans Firestore afya-id
-
-Quand tout est coche, tu peux annoncer officiellement que la version backend est prete pour l integration Flutter.

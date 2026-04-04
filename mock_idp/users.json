@@ -1,0 +1,68 @@
+[
+  {
+    "username": "admin.mock",
+    "password": "Admin123!",
+    "sub": "mock-admin-001",
+    "email": "admin.mock@afya.local",
+    "name": "Amina Admin",
+    "role": "ADMIN",
+    "is_verified": true,
+    "nationalId": "NI-ADM-1001",
+    "phone_number": "+243970000001"
+  },
+  {
+    "username": "doctor.mock",
+    "password": "Doctor123!",
+    "sub": "mock-doctor-001",
+    "email": "doctor.mock@afya.local",
+    "name": "David Doctor",
+    "role": "DOCTOR",
+    "is_verified": true,
+    "nationalId": "NI-DOC-2001",
+    "phone_number": "+243970000002"
+  },
+  {
+    "username": "healthworker.mock",
+    "password": "Health123!",
+    "sub": "mock-health-001",
+    "email": "healthworker.mock@afya.local",
+    "name": "Helena Healthworker",
+    "role": "HEALTH_WORKER",
+    "is_verified": true,
+    "nationalId": "NI-HW-3001",
+    "phone_number": "+243970000003"
+  },
+  {
+    "username": "responder.mock",
+    "password": "Responder123!",
+    "sub": "mock-responder-001",
+    "email": "responder.mock@afya.local",
+    "name": "Fabrice Responder",
+    "role": "FIRST_RESPONDER",
+    "is_verified": true,
+    "nationalId": "NI-FR-4001",
+    "phone_number": "+243970000004"
+  },
+  {
+    "username": "patient.verified",
+    "password": "Patient123!",
+    "sub": "mock-patient-verified-001",
+    "email": "patient.verified@afya.local",
+    "name": "Patricia Verified",
+    "role": "PATIENT",
+    "is_verified": true,
+    "nationalId": "NI-PAT-5001",
+    "phone_number": "+243970000005"
+  },
+  {
+    "username": "patient.pending",
+    "password": "Patient123!",
+    "sub": "mock-patient-pending-001",
+    "email": "patient.pending@afya.local",
+    "name": "Pascal Pending",
+    "role": "PATIENT",
+    "is_verified": false,
+    "nationalId": "NI-PAT-5002",
+    "phone_number": "+243970000006"
+  }
+]

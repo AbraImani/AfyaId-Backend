@@ -1,7 +1,3 @@
-"""
-Firebase / Firestore service layer.
-Handles all Firestore CRUD operations for the 'users' collection.
-"""
 
 import os
 import json
@@ -15,7 +11,12 @@ from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-# ── Module-level Firestore client ────────────────────────────────
+"""
+Firebase / Firestore service layer.
+Handles all Firestore CRUD operations for the 'users' collection.
+"""
+
+# _____________________ Module-level Firestore client _____________________
 _db = None
 _local_store: Dict[str, Dict[str, Dict[str, Any]]] = {}
 _force_local_fallback = False
@@ -210,7 +211,7 @@ def _activate_local_fallback(reason: Exception) -> None:
     logger.warning("Using local Firestore-compatible fallback store: %s", reason)
 
 
-# ── User CRUD Operations ────────────────────────────────────────
+# _____________________ User CRUD Operations _____________________
 
 async def get_user(uid: str) -> Optional[Dict[str, Any]]:
     """Retrieve a user document from Firestore by uid (= sub).

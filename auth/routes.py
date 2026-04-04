@@ -2,9 +2,9 @@
 Authentication routes for eSignet OIDC flow.
 
 Endpoints:
-- GET  /auth/login    → Redirect user to eSignet for authentication
-- GET  /auth/callback → Handle the callback with authorization code
-- GET  /auth/me       → Get current authenticated user profile
+- GET  /auth/login    : Redirect user to eSignet for authentication
+- GET  /auth/callback : Handle the callback with authorization code
+- GET  /auth/me       : Get current authenticated user profile
 """
 
 import logging

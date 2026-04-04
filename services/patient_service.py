@@ -15,7 +15,7 @@ from services.firebase_service import get_db, _should_use_local_fallback, _activ
 logger = logging.getLogger(__name__)
 
 
-# ── Patient CRUD Operations ─────────────────────────────────────
+# _____________________ Patient CRUD Operations _____________________
 
 async def create_patient(patient_data: Dict[str, Any]) -> Dict[str, Any]:
     """Create a new patient document in the 'patients' collection.

@@ -2,11 +2,11 @@
 eSignet Authentication Service.
 
 Handles the complete OIDC flow:
-1. Discovery → dynamically fetch endpoints from .well-known/openid-configuration
-2. Authorization URL → build redirect URL with proper parameters  
-3. Token Exchange → exchange auth code for tokens using private_key_jwt
-4. JWT Validation → verify tokens using JWKS public keys
-5. UserInfo → fetch user claims from the userinfo endpoint
+1. Discovery : dynamically fetch endpoints from .well-known/openid-configuration
+2. Authorization URL : build redirect URL with proper parameters  
+3. Token Exchange : exchange auth code for tokens using private_key_jwt
+4. JWT Validation : verify tokens using JWKS public keys
+5. UserInfo : fetch user claims from the userinfo endpoint
 """
 
 import time
@@ -24,7 +24,7 @@ from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-# ── Cached OIDC configuration and JWKS ──────────────────────────
+# _____________________ Cached OIDC configuration and JWKS _____________________
 _oidc_config: Optional[Dict[str, Any]] = None
 _oidc_config_fetched_at: float = 0
 _jwks_data: Optional[Dict[str, Any]] = None
@@ -485,9 +485,20 @@ async def get_userinfo(access_token: str) -> Dict[str, Any]:
 
     # The response may be a JWT or plain JSON
     content_type = response.headers.get("content-type", "")
-    response_text = response.text
+    response_text = response.text.strip()
 
-    if "application/jwt" in content_type or response_text.count(".") == 2:
+    # Some providers return userinfo as signed JWT (application/jwt).
+    # For text/plain responses, only treat content as JWT when it matches
+    # compact JWS structure exactly; JSON fields (emails, URLs) can also
+    # contain dots and must not be misclassified.
+    jwt_parts = response_text.split(".")
+    looks_like_compact_jwt = (
+        len(jwt_parts) == 3
+        and response_text.startswith(tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"))
+        and all(part and all(ch.isalnum() or ch in "-_" for ch in part) for part in jwt_parts)
+    )
+
+    if "application/jwt" in content_type or looks_like_compact_jwt:
         # Response is a signed JWT — validate and decode it
         logger.info("Userinfo response is a JWT, validating...")
         try:

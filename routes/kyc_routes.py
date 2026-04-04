@@ -5,7 +5,7 @@ Provides endpoints for users to submit identity verification documents
 when their identity is NOT verified by the eSignet provider.
 
 Endpoint:
-- POST /kyc/submit → Submit KYC documents and profile information
+- POST /kyc/submit : Submit KYC documents and profile information
 """
 
 import logging
@@ -50,7 +50,7 @@ async def submit_kyc(
     uid = claims["sub"]
 
     try:
-        # ── Step 1: Fetch existing user ───────────────────────
+        # _____________________ Step 1: Fetch existing user _____________________
         user_data = await firebase_service.get_user(uid)
         if not user_data:
             raise HTTPException(
@@ -66,7 +66,7 @@ async def submit_kyc(
                 detail=f"KYC already verified (status: {current_kyc}). No resubmission needed."
             )
 
-        # ── Step 2: Validate nationalId uniqueness ────────────
+        # _____________________ Step 2: Validate nationalId uniqueness _____________________
         if submission.nationalId:
             is_unique = await firebase_service.check_national_id_unique(
                 submission.nationalId,
@@ -78,7 +78,7 @@ async def submit_kyc(
                     detail="This National ID is already registered to another user."
                 )
 
-        # ── Step 3: Build update data ─────────────────────────
+        # _____________________ Step 3: Build update data _____________________
         update_data = {
             "nationalId": submission.nationalId,
             "kycSubmittedAt": firebase_service.utc_now_iso(),
@@ -95,7 +95,7 @@ async def submit_kyc(
                 # Convert enum to string for Firestore storage
                 update_data[field] = value.value if hasattr(value, "value") else value
 
-        # ── Step 4: Update user in Firestore ──────────────────
+        # _____________________ Step 4: Update user in Firestore _____________________
         updated_user = await firebase_service.update_kyc_status(
             uid,
             "SUBMITTED",

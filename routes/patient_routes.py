@@ -2,11 +2,11 @@
 Patient routes — full CRUD with role-based access control.
 
 Endpoints:
-- POST   /patients/register              → Health Worker registers a patient
-- PATCH  /patients/{patient_id}          → Update patient data
-- GET    /patients/{patient_id}          → Full patient record
-- GET    /patients/{patient_id}/summary  → Medical summary (Doctors)
-- GET    /patients/{patient_id}/emergency → Emergency data (First Responders)
+- POST   /patients/register              : Health Worker registers a patient
+- PATCH  /patients/{patient_id}          : Update patient data
+- GET    /patients/{patient_id}          : Full patient record
+- GET    /patients/{patient_id}/summary  : Medical summary (Doctors)
+- GET    /patients/{patient_id}/emergency : Emergency data (First Responders)
 """
 
 import logging

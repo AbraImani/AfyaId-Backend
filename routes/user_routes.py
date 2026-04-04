@@ -2,7 +2,7 @@
 User profile routes.
 
 Endpoints:
-- PATCH /users/me/profile → Update own staff profile
+- PATCH /users/me/profile : Update own staff profile
 """
 
 import logging

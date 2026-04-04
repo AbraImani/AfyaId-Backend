@@ -11,3 +11,5 @@ __pycache__/
 .venv/
 venv/
 .DS_Store
+mock_idp/keys/*.pem
+!mock_idp/keys/.gitkeep
