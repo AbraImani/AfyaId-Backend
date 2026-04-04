@@ -19,7 +19,7 @@ from services import firebase_service
 from models.patient import (
     PatientRegisterRequest,
     PatientUpdateRequest,
-    PatientModel,
+    PatientsModel,
     PatientSummaryResponse,
     PatientEmergencyResponse,
 )
@@ -105,10 +105,10 @@ async def register_patient(
     5. Link the registering Health Worker's UID to the record
 
     Request body (PatientRegisterRequest):
-        - fullName (required)
-        - dateOfBirth, gender, phoneNumber, nationalId, emergencyContact
-        - bloodType, allergies, chronicConditions, medications
-        - hospital
+        - firstName, lastName (required)
+        - email, phone, gender, adress, dateOfBirth, nationalId
+        - bloodGroup, medAllergies, foodAllergies, chronicConditions
+        - weightKg, heightCm
         - esignetSubjectId (if verified via eSignet)
         - identityVerified (bool — true if eSignet verified)
 
@@ -155,15 +155,17 @@ async def register_patient(
         patient_data["identityStatus"] = identity_status
         patient_data["kycStatus"] = kyc_status
         patient_data["registrationSource"] = registration_source
-        patient_data["registeredBy"] = current_user["uid"]
-        patient_data["hospital"] = request.hospital or current_user.get("hospital")
+        patient_data["createdByID"] = current_user["uid"]
+        # adress defaults to user's hospital if not provided
+        if not patient_data.get("adress"):
+            patient_data["adress"] = current_user.get("hospital")
 
         # ── Step 5: Create in Firestore ───────────────────────
         created_patient = await patient_service.create_patient(patient_data)
 
         logger.info(
             f"Patient registered by {current_user['uid']}: "
-            f"{created_patient['patientId']}"
+            f"{created_patient['id']}"
         )
 
         return {
@@ -338,9 +340,10 @@ async def get_patient_summary(
 ):
     """
     Medical summary for Doctors:
-    - Name, DOB, gender
-    - Blood type, allergies, chronic conditions, medications
-    - Emergency contact, hospital
+    - Name (firstName, lastName), email, phone, gender, address
+    - Blood group, medical allergies, food allergies, chronic conditions
+    - Weight, height, vitals, medications, medical notes
+    - Appointments, vaccinations
     - Identity verification status
 
     Response:
@@ -392,14 +395,16 @@ async def get_patient_emergency(
 ):
     """
     Emergency data for First Responders — minimal patient info:
-    - Full name
-    - Blood type
-    - Allergies (critical for emergency treatment)
+    - Full name (firstName, lastName), phone
+    - Gender, weight, height
+    - Blood group
+    - Medical allergies, food allergies (critical for emergency treatment)
     - Chronic conditions (e.g. diabetes, heart disease)
-    - Emergency contact
+    - Latest vital signs
+    - Emergency contacts
 
-    Does NOT include: medications, hospital, registration details,
-    identity status, or any administrative fields.
+    Does NOT include: medications, medical notes, appointments, vaccinations,
+    registration details, identity status, or any administrative fields.
 
     Response:
         - 200: PatientEmergencyResponse

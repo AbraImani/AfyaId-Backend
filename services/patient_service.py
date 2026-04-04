@@ -20,15 +20,15 @@ logger = logging.getLogger(__name__)
 async def create_patient(patient_data: Dict[str, Any]) -> Dict[str, Any]:
     """Create a new patient document in the 'patients' collection.
 
-    If no patientId is provided, one is auto-generated.
+    If no id is provided, one is auto-generated.
     If esignetSubjectId is provided, it is used as the document ID
     to guarantee 1:1 mapping between verified identity and patient record.
 
     Args:
-        patient_data: Dict containing patient fields.
+        patient_data: Dict containing patient fields aligned with PatientsModel.
 
     Returns:
-        The created patient data dict with patientId and timestamps.
+        The created patient data dict with id and timestamps.
     """
     try:
         db = get_db()
@@ -36,39 +36,42 @@ async def create_patient(patient_data: Dict[str, Any]) -> Dict[str, Any]:
         # Determine document ID
         # If patient was verified via eSignet, use esignetSubjectId as ID
         # Otherwise generate a unique ID
-        patient_id = patient_data.get("patientId")
-        if not patient_id:
+        doc_id = patient_data.get("id")
+        if not doc_id:
             esignet_sub = patient_data.get("esignetSubjectId")
-            patient_id = esignet_sub if esignet_sub else f"PAT-{uuid.uuid4().hex[:12]}"
-            patient_data["patientId"] = patient_id
+            doc_id = esignet_sub if esignet_sub else f"PAT-{uuid.uuid4().hex[:12]}"
+            patient_data["id"] = doc_id
 
         # Set timestamps
         now = datetime.utcnow().isoformat()
         patient_data["createdAt"] = now
         patient_data["updatedAt"] = now
 
-        # Set defaults
+        # Set defaults for list fields
         patient_data.setdefault("isActive", True)
         patient_data.setdefault("identityStatus", "PENDING")
         patient_data.setdefault("kycStatus", "PENDING")
         patient_data.setdefault("registrationSource", "manual")
-        patient_data.setdefault("allergies", [])
         patient_data.setdefault("chronicConditions", [])
-        patient_data.setdefault("medications", [])
+        patient_data.setdefault("emergencyContacts", [])
+        patient_data.setdefault("medicalNotes", [])
+        patient_data.setdefault("activeMedecines", [])
+        patient_data.setdefault("appointments", [])
+        patient_data.setdefault("vaccinations", [])
 
-        db.collection("patients").document(patient_id).set(patient_data)
-        logger.info(f"Patient created in Firestore: {patient_id}")
+        db.collection("patients").document(doc_id).set(patient_data)
+        logger.info(f"Patient created in Firestore: {doc_id}")
         return patient_data
 
     except Exception as e:
         if _should_use_local_fallback(e):
             _activate_local_fallback(e)
             db = get_db()
-            patient_id = patient_data.get("patientId")
-            if not patient_id:
+            doc_id = patient_data.get("id")
+            if not doc_id:
                 esignet_sub = patient_data.get("esignetSubjectId")
-                patient_id = esignet_sub if esignet_sub else f"PAT-{uuid.uuid4().hex[:12]}"
-                patient_data["patientId"] = patient_id
+                doc_id = esignet_sub if esignet_sub else f"PAT-{uuid.uuid4().hex[:12]}"
+                patient_data["id"] = doc_id
 
             now = datetime.utcnow().isoformat()
             patient_data["createdAt"] = now
@@ -77,11 +80,14 @@ async def create_patient(patient_data: Dict[str, Any]) -> Dict[str, Any]:
             patient_data.setdefault("identityStatus", "PENDING")
             patient_data.setdefault("kycStatus", "PENDING")
             patient_data.setdefault("registrationSource", "manual")
-            patient_data.setdefault("allergies", [])
             patient_data.setdefault("chronicConditions", [])
-            patient_data.setdefault("medications", [])
-            db.collection("patients").document(patient_id).set(patient_data)
-            logger.info(f"Patient created in local fallback store: {patient_id}")
+            patient_data.setdefault("emergencyContacts", [])
+            patient_data.setdefault("medicalNotes", [])
+            patient_data.setdefault("activeMedecines", [])
+            patient_data.setdefault("appointments", [])
+            patient_data.setdefault("vaccinations", [])
+            db.collection("patients").document(doc_id).set(patient_data)
+            logger.info(f"Patient created in local fallback store: {doc_id}")
             return patient_data
         logger.error(f"Error creating patient: {e}")
         raise
@@ -309,20 +315,30 @@ def build_patient_summary(patient_data: Dict[str, Any]) -> Dict[str, Any]:
         patient_data: Full patient document from Firestore.
 
     Returns:
-        Filtered dict with medical summary fields.
+        Filtered dict with medical summary fields aligned with PatientSummaryResponse.
     """
     return {
-        "patientId": patient_data.get("patientId"),
-        "fullName": patient_data.get("fullName"),
-        "dateOfBirth": patient_data.get("dateOfBirth"),
+        "id": patient_data.get("id"),
+        "firstName": patient_data.get("firstName"),
+        "lastName": patient_data.get("lastName"),
+        "email": patient_data.get("email"),
+        "phone": patient_data.get("phone"),
         "gender": patient_data.get("gender"),
-        "bloodType": patient_data.get("bloodType"),
-        "allergies": patient_data.get("allergies", []),
+        "adress": patient_data.get("adress"),
+        "bloodGroup": patient_data.get("bloodGroup"),
+        "dateOfBirth": patient_data.get("dateOfBirth"),
+        "medAllergies": patient_data.get("medAllergies"),
+        "foodAllergies": patient_data.get("foodAllergies"),
         "chronicConditions": patient_data.get("chronicConditions", []),
-        "medications": patient_data.get("medications", []),
-        "emergencyContact": patient_data.get("emergencyContact"),
-        "hospital": patient_data.get("hospital"),
+        "weightKg": patient_data.get("weightKg"),
+        "heightCm": patient_data.get("heightCm"),
+        "latestVitalSigns": patient_data.get("latestVitalSigns"),
+        "activeMedecines": patient_data.get("activeMedecines", []),
+        "medicalNotes": patient_data.get("medicalNotes", []),
+        "appointments": patient_data.get("appointments", []),
+        "vaccinations": patient_data.get("vaccinations", []),
         "identityStatus": patient_data.get("identityStatus", "PENDING"),
+        "kycStatus": patient_data.get("kycStatus", "PENDING"),
         "isActive": patient_data.get("isActive", True),
     }
 
@@ -337,15 +353,23 @@ def build_patient_emergency(patient_data: Dict[str, Any]) -> Dict[str, Any]:
         patient_data: Full patient document from Firestore.
 
     Returns:
-        Filtered dict with emergency-only fields.
+        Filtered dict with emergency-only fields aligned with PatientEmergencyResponse.
     """
     return {
-        "patientId": patient_data.get("patientId"),
-        "fullName": patient_data.get("fullName"),
-        "bloodType": patient_data.get("bloodType"),
-        "allergies": patient_data.get("allergies", []),
+        "id": patient_data.get("id"),
+        "firstName": patient_data.get("firstName"),
+        "lastName": patient_data.get("lastName"),
+        "phone": patient_data.get("phone"),
+        "gender": patient_data.get("gender"),
+        "bloodGroup": patient_data.get("bloodGroup"),
+        "medAllergies": patient_data.get("medAllergies"),
+        "foodAllergies": patient_data.get("foodAllergies"),
         "chronicConditions": patient_data.get("chronicConditions", []),
-        "emergencyContact": patient_data.get("emergencyContact"),
+        "weightKg": patient_data.get("weightKg"),
+        "heightCm": patient_data.get("heightCm"),
+        "latestVitalSigns": patient_data.get("latestVitalSigns"),
+        "emergencyContacts": patient_data.get("emergencyContacts", []),
+        "isActive": patient_data.get("isActive", True),
     }
 
 
