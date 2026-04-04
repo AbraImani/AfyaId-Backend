@@ -297,19 +297,7 @@ class PatientEmergencyResponse(BaseModel):
     heightCm: Optional[float] = None
     latestVitalSigns: Optional[VitalSignsModel] = None
     emergencyContacts: List[EmergencyContact] = Field(default_factory=list)
-    isActive: bool = Truld(default_factory=list, description="Appointments")
-    vaccinations: List[Vaccination] = Field(default_factory=list, description="Vaccination records")
-    organDonation: Optional[OrganDonation] = Field(None, description="Organ/blood donation info")
-    
-    # Meta fields
-    esignetSubjectId: Optional[str] = Field(None, description="eSignet 'sub' claim if identity verified")
-    identityStatus: str = Field(IdentityStatus.PENDING, description="Identity verification status")
-    kycStatus: str = Field(PatientKYCStatus.PENDING, description="KYC verification status")
-    registrationSource: str = Field("manual", description="Registration source: 'manual' or 'esignet'")
-    isActive: bool = Field(True, description="Active patient record")
-    createdByID: str = Field(..., description="UID of staff who created record")
-    createdAt: str = Field(..., description="ISO creation timestamp")
-    updatedAt: str = Field(..., description="ISO update timestamp")
+    isActive: bool = True
 
 
 # ── Request Models ────────────────────────────────────────────
