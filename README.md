@@ -10,6 +10,7 @@ Backend FastAPI pour AfyaID (prototype v1.0.0) : gestion des patients, RBAC, KYC
 - Documentation detaillee (FR): docs/API documentation.md
 - Setup local mock OIDC/eSignet (FR): docs/MOCK_ESIGNET_LOCAL_SETUP_FR.md
 - Guide Flutter local/mock (FR): docs/FLUTTER_TEAM_LOCAL_MOCK_GUIDE_FR.md
+- Note Flutter test distant (FR): docs/FLUTTER_REMOTE_TEST_NOTE_FR.md
 
 ## Statut du prototype
 

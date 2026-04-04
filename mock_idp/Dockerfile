@@ -18,6 +18,6 @@ ENV OIDC_CLIENT_ID=afya-local-client
 ENV OIDC_CLIENT_SECRET=afya-local-secret
 ENV OIDC_REDIRECT_URI=http://localhost:8000/auth/callback
 
-EXPOSE 9000
+EXPOSE 8080
 
-CMD ["sh", "-c", "python /app/bootstrap_keys.py && uvicorn app:app --host ${OIDC_HOST} --port ${OIDC_PORT}"]
+CMD ["sh", "-c", "python /app/bootstrap_keys.py && uvicorn app:app --host ${OIDC_HOST} --port ${PORT:-${OIDC_PORT}}"]
