@@ -37,7 +37,7 @@ class RejectKYCRequest(BaseModel):
 
 
 class AdminCreateUserRequest(BaseModel):
-    uid: str = Field(..., description="User UID (OIDC sub or controlled mock UID)")
+    uid: Optional[str] = Field(None, description="Optional user UID (auto-generated if omitted)")
     email: Optional[str] = Field(None, description="User email")
     fullName: Optional[str] = Field(None, description="Full name")
     role: Optional[UserRole] = Field(None, description="Target staff role")
@@ -61,9 +61,10 @@ async def admin_create_user(
 ):
     """Create a staff user directly from admin scope (mock/bootstrap workflow)."""
     try:
-        existing = await firebase_service.get_user(body.uid)
-        if existing:
-            raise HTTPException(status_code=409, detail=f"User already exists: {body.uid}")
+        if body.uid:
+            existing = await firebase_service.get_user(body.uid)
+            if existing:
+                raise HTTPException(status_code=409, detail=f"User already exists: {body.uid}")
 
         if body.nationalId:
             is_unique = await firebase_service.check_national_id_unique(body.nationalId)
@@ -73,7 +74,7 @@ async def admin_create_user(
                     detail="This National ID is already registered.",
                 )
 
-        payload = body.model_dump()
+        payload = body.model_dump(exclude_none=True)
         if payload.get("role") is not None:
             payload["role"] = payload["role"].value
             payload["roleAssignedBy"] = current_admin["uid"]
@@ -88,7 +89,7 @@ async def admin_create_user(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Admin create user failed for {body.uid}: {e}")
+        logger.error(f"Admin create user failed (uid={body.uid}): {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create user.",

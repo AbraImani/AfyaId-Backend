@@ -2,6 +2,7 @@
 import os
 import json
 import logging
+import uuid
 import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
@@ -245,8 +246,8 @@ async def get_user(uid: str) -> Optional[Dict[str, Any]]:
 async def create_user(user_data: Dict[str, Any]) -> Dict[str, Any]:
     """Create a new user document in Firestore.
     
-    Document ID is set to uid (= sub from eSignet) to guarantee
-    1:1 mapping between eSignet identity and Firestore document.
+    If uid is omitted, backend auto-generates one.
+    For OIDC-created users, uid should remain equal to sub.
     
     Args:
         user_data: Dict containing all user fields.
@@ -256,7 +257,8 @@ async def create_user(user_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     try:
         db = get_db()
-        uid = user_data["uid"]
+        uid = user_data.get("uid") or f"usr_{uuid.uuid4().hex[:20]}"
+        user_data["uid"] = uid
 
         # Set timestamps
         now = utc_now_iso()
@@ -270,7 +272,8 @@ async def create_user(user_data: Dict[str, Any]) -> Dict[str, Any]:
         if _should_use_local_fallback(e):
             _activate_local_fallback(e)
             db = get_db()
-            uid = user_data["uid"]
+            uid = user_data.get("uid") or f"usr_{uuid.uuid4().hex[:20]}"
+            user_data["uid"] = uid
             now = utc_now_iso()
             user_data["createdAt"] = now
             user_data["lastLogin"] = now
