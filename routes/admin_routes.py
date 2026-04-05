@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from dependencies.role_checker import require_role
 from services import firebase_service
+from services import patient_service
 from models.user import UserRole
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,32 @@ async def admin_create_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create user.",
+        )
+
+
+@router.delete("/patients/{patient_id}", summary="Delete Patient (Admin)")
+async def admin_delete_patient(
+    patient_id: str,
+    current_admin: dict = Depends(require_role("ADMIN")),
+):
+    try:
+        patient = await patient_service.get_patient(patient_id)
+        if not patient:
+            raise HTTPException(status_code=404, detail=f"Patient not found: {patient_id}")
+
+        await patient_service.delete_patient(patient_id)
+        return {
+            "message": "Patient deleted successfully.",
+            "patient_id": patient_id,
+            "deleted_by": current_admin.get("uid"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete patient failed for {patient_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete patient.",
         )
 
 

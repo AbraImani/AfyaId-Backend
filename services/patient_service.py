@@ -7,7 +7,7 @@ Patients are separate from staff users and are registered by Health Workers.
 
 import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
 from services.firebase_service import get_db, _should_use_local_fallback, _activate_local_fallback
@@ -43,7 +43,7 @@ async def create_patient(patient_data: Dict[str, Any]) -> Dict[str, Any]:
             patient_data["id"] = doc_id
 
         # Set timestamps
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc)
         patient_data["createdAt"] = now
         patient_data["updatedAt"] = now
 
@@ -73,7 +73,7 @@ async def create_patient(patient_data: Dict[str, Any]) -> Dict[str, Any]:
                 doc_id = esignet_sub if esignet_sub else f"PAT-{uuid.uuid4().hex[:12]}"
                 patient_data["id"] = doc_id
 
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc)
             patient_data["createdAt"] = now
             patient_data["updatedAt"] = now
             patient_data.setdefault("isActive", True)
@@ -187,7 +187,7 @@ async def update_patient(patient_id: str, data: Dict[str, Any]) -> Dict[str, Any
             raise ValueError(f"Patient not found: {patient_id}")
 
         # Always update the timestamp
-        data["updatedAt"] = datetime.utcnow().isoformat()
+        data["updatedAt"] = datetime.now(timezone.utc)
 
         doc_ref.update(data)
         logger.info(f"Patient updated: {patient_id}")
@@ -203,7 +203,7 @@ async def update_patient(patient_id: str, data: Dict[str, Any]) -> Dict[str, Any
             doc_ref = db.collection("patients").document(patient_id)
             if not doc_ref.get().exists:
                 raise ValueError(f"Patient not found: {patient_id}")
-            data["updatedAt"] = datetime.utcnow().isoformat()
+            data["updatedAt"] = datetime.now(timezone.utc)
             doc_ref.update(data)
             updated_doc = doc_ref.get()
             return updated_doc.to_dict()
