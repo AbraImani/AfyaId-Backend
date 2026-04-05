@@ -34,6 +34,13 @@ _jwks_fetched_at: float = 0
 CACHE_TTL = 3600
 
 
+def _clear_jwks_cache() -> None:
+    """Force a JWKS refresh on next key lookup (useful after key rotation)."""
+    global _jwks_data, _jwks_fetched_at
+    _jwks_data = None
+    _jwks_fetched_at = 0
+
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # STEP 1: OIDC Discovery
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -370,10 +377,10 @@ async def validate_id_token(id_token: str, expected_nonce: Optional[str] = None)
 
     logger.info(f"Validating id_token. Expected issuer: {expected_issuer}")
 
-    # Get the signing key
-    signing_key = await _get_signing_key(id_token)
-
     try:
+        # First attempt with current cache
+        signing_key = await _get_signing_key(id_token)
+
         # Decode and validate the id_token
         claims = jwt.decode(
             id_token,
@@ -396,6 +403,29 @@ async def validate_id_token(id_token: str, expected_nonce: Optional[str] = None)
         return claims
 
     except JWTError as e:
+        # Retry once with forced JWKS refresh to survive provider key rotation.
+        if "Signature verification failed" in str(e):
+            logger.warning("id_token signature failed. Refreshing JWKS and retrying once.")
+            _clear_jwks_cache()
+            signing_key = await _get_signing_key(id_token)
+            claims = jwt.decode(
+                id_token,
+                signing_key,
+                algorithms=["RS256"],
+                audience=settings.client_id,
+                issuer=expected_issuer,
+                options={
+                    "verify_aud": True,
+                    "verify_iss": True,
+                    "verify_exp": True,
+                    "verify_iat": True,
+                }
+            )
+            if expected_nonce and claims.get("nonce") != expected_nonce:
+                raise JWTError("Invalid nonce in id_token")
+            logger.info("id_token validated successfully after JWKS refresh.")
+            return claims
+
         logger.error(f"id_token validation failed: {e}")
         raise
 
@@ -425,9 +455,8 @@ async def validate_access_token(access_token: str) -> Dict[str, Any]:
 
     logger.info("Validating access_token...")
 
-    signing_key = await _get_signing_key(access_token)
-
     try:
+        signing_key = await _get_signing_key(access_token)
         claims = jwt.decode(
             access_token,
             signing_key,
@@ -445,6 +474,25 @@ async def validate_access_token(access_token: str) -> Dict[str, Any]:
         return claims
 
     except JWTError as e:
+        if "Signature verification failed" in str(e):
+            logger.warning("access_token signature failed. Refreshing JWKS and retrying once.")
+            _clear_jwks_cache()
+            signing_key = await _get_signing_key(access_token)
+            claims = jwt.decode(
+                access_token,
+                signing_key,
+                algorithms=["RS256"],
+                audience=settings.effective_jwt_audience,
+                issuer=expected_issuer,
+                options={
+                    "verify_aud": True,
+                    "verify_iss": True,
+                    "verify_exp": True,
+                }
+            )
+            logger.info("access_token validated after JWKS refresh.")
+            return claims
+
         logger.error(f"access_token validation failed: {e}")
         raise
 

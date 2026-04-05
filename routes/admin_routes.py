@@ -2,6 +2,7 @@
 Admin routes for staff governance operations.
 
 Endpoints:
+- POST /admin/users
 - POST /admin/users/{uid}/role
 - POST /admin/users/{uid}/kyc/verify
 - POST /admin/users/{uid}/kyc/reject
@@ -32,6 +33,65 @@ class VerifyKYCRequest(BaseModel):
 
 class RejectKYCRequest(BaseModel):
     reason: str = Field(..., description="Reason for rejection")
+
+
+class AdminCreateUserRequest(BaseModel):
+    uid: str = Field(..., description="User UID (OIDC sub or controlled mock UID)")
+    email: Optional[str] = Field(None, description="User email")
+    fullName: Optional[str] = Field(None, description="Full name")
+    role: Optional[UserRole] = Field(None, description="Target staff role")
+    hospital: Optional[str] = Field(None, description="Hospital")
+    title: Optional[str] = Field(None, description="Professional title")
+    matriculeNumber: Optional[str] = Field(None, description="Professional matricule")
+    nationalId: Optional[str] = Field(None, description="National ID")
+    specialty: Optional[str] = Field(None, description="Medical specialty")
+    unitName: Optional[str] = Field(None, description="Hospital unit")
+    contactPhone: Optional[str] = Field(None, description="Phone number")
+    photoURL: Optional[str] = Field(None, description="Photo URL")
+    kycStatus: str = Field("VERIFIED_BY_PROVIDER", description="Initial KYC status")
+    provider: str = Field("mock-oidc", description="Identity provider label")
+    isActive: bool = Field(True, description="Whether account is active")
+
+
+@router.post("/users", summary="Create Staff User (Admin)", status_code=status.HTTP_201_CREATED)
+async def admin_create_user(
+    body: AdminCreateUserRequest,
+    current_admin: dict = Depends(require_role("ADMIN")),
+):
+    """Create a staff user directly from admin scope (mock/bootstrap workflow)."""
+    try:
+        existing = await firebase_service.get_user(body.uid)
+        if existing:
+            raise HTTPException(status_code=409, detail=f"User already exists: {body.uid}")
+
+        if body.nationalId:
+            is_unique = await firebase_service.check_national_id_unique(body.nationalId)
+            if not is_unique:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This National ID is already registered.",
+                )
+
+        payload = body.model_dump()
+        if payload.get("role") is not None:
+            payload["role"] = payload["role"].value
+            payload["roleAssignedBy"] = current_admin["uid"]
+            payload["roleAssignedAt"] = firebase_service.utc_now_iso()
+
+        created = await firebase_service.create_user(payload)
+        return {
+            "message": "User created successfully by admin.",
+            "user": created,
+            "created_by": current_admin.get("uid"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Admin create user failed for {body.uid}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create user.",
+        )
 
 
 @router.post("/users/{uid}/role", summary="Assign User Role")
