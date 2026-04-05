@@ -137,6 +137,10 @@ class InMemoryStore:
         self.patients[patient_id]["updatedAt"] = self._now_iso()
         return deepcopy(self.patients[patient_id])
 
+    async def list_patients_by_kyc_status(self, kyc_status, limit=100):
+        items = [deepcopy(patient) for patient in self.patients.values() if patient.get("kycStatus") == kyc_status]
+        return items[:limit]
+
     async def check_patient_national_id_unique(self, national_id, exclude_patient_id=None):
         for pid, patient in self.patients.items():
             if exclude_patient_id and pid == exclude_patient_id:
@@ -219,6 +223,7 @@ def patch_services(store: InMemoryStore):
     patient_service.update_patient = store.update_patient
     patient_service.check_patient_national_id_unique = store.check_patient_national_id_unique
     patient_service.check_esignet_sub_unique = store.check_esignet_sub_unique
+    patient_service.list_patients_by_kyc_status = store.list_patients_by_kyc_status
 
     # Avoid external startup calls from app lifespan during TestClient creation.
     def fake_init_firebase():
@@ -305,7 +310,22 @@ def run_tests():
     # Admin KYC list and actions
     pending = client.get("/admin/kyc/pending", headers=auth_header("token-admin"))
     assert pending.status_code == 200
-    assert pending.json()["count"] >= 1
+    pending_items = pending.json()
+    assert isinstance(pending_items, list)
+    assert pending_items, "expected at least one pending KYC item"
+    assert {item["role"] for item in pending_items} >= {"DOCTOR", "PATIENT"}
+    for item in pending_items:
+        assert set(item.keys()) == {
+            "uid",
+            "fullName",
+            "nationalId",
+            "role",
+            "matriculeNumber",
+            "contactPhone",
+            "documentUrl",
+            "kycStatus",
+            "submittedAt",
+        }
 
     verify = client.post(
         "/admin/users/user-1/kyc/verify",
@@ -348,6 +368,20 @@ def run_tests():
     assert reg.status_code == 201
     patient_id = reg.json()["patient"]["patientId"]
 
+    patient_kyc = client.post(
+        f"/kyc/patients/{patient_id}/submit",
+        headers=auth_header("token-hw"),
+        json={
+            "uid": patient_id,
+            "fullName": "Patient One",
+            "nationalId": "PAT-KYC-001",
+            "role": "PATIENT",
+            "contactPhone": "+237622222222",
+            "documentUrl": "https://example.invalid/patient-kyc.pdf",
+        },
+    )
+    assert patient_kyc.status_code == 200
+
     # Duplicate patient nationalId rejected
     dup = client.post(
         "/patients/register",
@@ -356,11 +390,19 @@ def run_tests():
     )
     assert dup.status_code == 409
 
+    # Doctor can update patient information
+    doctor_update = client.patch(
+        f"/patients/{patient_id}",
+        headers=auth_header("token-doc"),
+        json={"phone": "+237633333333"},
+    )
+    assert doctor_update.status_code == 200
+
     # Patient update
     upd = client.patch(
         f"/patients/{patient_id}",
         headers=auth_header("token-hw"),
-        json={"phoneNumber": "+237611111111"},
+        json={"phone": "+237611111111"},
     )
     assert upd.status_code == 200
 

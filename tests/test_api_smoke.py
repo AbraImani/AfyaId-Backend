@@ -427,7 +427,33 @@ def test_admin_endpoints():
         return {"uid": uid, "kycStatus": status, **(additional_data or {})}
 
     async def fake_list_users_by_kyc_status(kyc_status: str, limit: int = 100):
-        return [{"uid": "u1", "kycStatus": kyc_status}]
+        return [
+            {
+                "uid": "u1",
+                "fullName": "Doc One",
+                "nationalId": "ID-USER-001",
+                "role": "DOCTOR",
+                "matriculeNumber": "MAT-1",
+                "contactPhone": "+243900000001",
+                "documentUrl": None,
+                "kycStatus": kyc_status,
+                "kycSubmittedAt": "2026-04-05T10:30:00Z",
+            }
+        ]
+
+    async def fake_list_patients_by_kyc_status(kyc_status: str, limit: int = 100):
+        return [
+            {
+                "id": "pat_1",
+                "fullName": "Abraham Imani",
+                "nationalId": "ID-PAT-001",
+                "matriculeNumber": None,
+                "phone": "+243900000002",
+                "documentUrl": None,
+                "kycStatus": kyc_status,
+                "kycSubmittedAt": "2026-04-05T11:00:00Z",
+            }
+        ]
 
     with override_current_user("admin-1"):
         with patched(
@@ -436,6 +462,7 @@ def test_admin_endpoints():
                 "services.firebase_service.assign_user_role": fake_assign_user_role,
                 "services.firebase_service.update_kyc_status": fake_update_kyc_status,
                 "services.firebase_service.list_users_by_kyc_status": fake_list_users_by_kyc_status,
+                "services.patient_service.list_patients_by_kyc_status": fake_list_patients_by_kyc_status,
             }
         ):
             role_resp = assert_ok(
@@ -468,7 +495,10 @@ def test_admin_endpoints():
             pending_resp = assert_ok(
                 client.get("/admin/kyc/pending", headers={"Authorization": "Bearer token"})
             )
-            assert pending_resp["count"] == 1
+            assert isinstance(pending_resp, list)
+            assert len(pending_resp) == 2
+            assert {item["role"] for item in pending_resp} == {"DOCTOR", "PATIENT"}
+            assert {item["uid"] for item in pending_resp} == {"u1", "pat_1"}
 
 
 async def run_all():

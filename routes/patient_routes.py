@@ -193,14 +193,14 @@ async def register_patient(
     "/{patient_id}",
     summary="Update Patient Data",
     description=(
-        "Update a patient's record. Only Health Workers and Admins can update. "
+        "Update a patient's record. Health Workers, Doctors, and Admins can update. "
         "All fields are optional — only provided fields will be changed."
     ),
 )
 async def update_patient(
     patient_id: str,
     request: PatientUpdateRequest,
-    current_user: dict = Depends(require_role("HEALTH_WORKER", "ADMIN")),
+    current_user: dict = Depends(require_role("HEALTH_WORKER", "ADMIN", "DOCTOR")),
 ):
     """
     Update patient fields. Validates nationalId and esignetSubjectId

@@ -384,7 +384,7 @@ Réponse exemple :
 
 #### PATCH /patients/{patient_id}
 
-Rôle requis : `HEALTH_WORKER` ou `ADMIN`.
+Rôle requis : `HEALTH_WORKER`, `DOCTOR` ou `ADMIN`.
 
 Description : met à jour un patient.
 
@@ -558,11 +558,19 @@ Rôle requis : `ADMIN`.
 Réponse exemple :
 
 ```json
-{
-  "count": 1,
-  "items": [],
-  "reviewer": "admin-sub"
-}
+[
+  {
+    "uid": "doc_001",
+    "fullName": "Dr Alice Mbala",
+    "nationalId": "ID-USER-001",
+    "role": "DOCTOR",
+    "matriculeNumber": "MAT-7788",
+    "contactPhone": "+243900000001",
+    "documentUrl": null,
+    "kycStatus": "SUBMITTED",
+    "submittedAt": "2026-04-05T10:30:00Z"
+  }
+]
 ```
 
 ## 9. Format des données patient

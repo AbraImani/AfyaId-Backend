@@ -11,6 +11,7 @@ Endpoints:
 
 import logging
 from typing import Optional
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -52,6 +53,49 @@ class AdminCreateUserRequest(BaseModel):
     kycStatus: str = Field("VERIFIED_BY_PROVIDER", description="Initial KYC status")
     provider: str = Field("mock-oidc", description="Identity provider label")
     isActive: bool = Field(True, description="Whether account is active")
+
+
+def _normalize_pending_timestamp(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    if isinstance(value, str):
+        if value.endswith("Z"):
+            return value
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return value
+        if parsed.tzinfo is None:
+            return parsed.isoformat() + "Z"
+        return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return str(value)
+
+
+def _build_pending_item(
+    *,
+    uid: Optional[str],
+    full_name: Optional[str],
+    national_id: Optional[str],
+    role: str,
+    matricule_number: Optional[str],
+    contact_phone: Optional[str],
+    document_url: Optional[str],
+    kyc_status: Optional[str],
+    submitted_at,
+):
+    return {
+        "uid": uid,
+        "fullName": full_name,
+        "nationalId": national_id,
+        "role": role,
+        "matriculeNumber": matricule_number,
+        "contactPhone": contact_phone,
+        "documentUrl": document_url,
+        "kycStatus": kyc_status,
+        "submittedAt": _normalize_pending_timestamp(submitted_at),
+    }
 
 
 @router.post("/users", summary="Create Staff User (Admin)", status_code=status.HTTP_201_CREATED)
@@ -222,45 +266,36 @@ async def list_pending_kyc(
         patients = await patient_service.list_patients_by_kyc_status("SUBMITTED", limit=limit)
 
         user_items = [
-            {
-                "entityType": "USER",
-                "uid": item.get("uid"),
-                "fullName": item.get("fullName"),
-                "nationalId": item.get("nationalId"),
-                "role": item.get("role"),
-                "matriculeNumber": item.get("matriculeNumber"),
-                "contactPhone": item.get("contactPhone"),
-                "documentUrl": item.get("documentUrl"),
-                "kycStatus": item.get("kycStatus"),
-                "submittedAt": item.get("kycSubmittedAt"),
-            }
+            _build_pending_item(
+                uid=item.get("uid"),
+                full_name=item.get("fullName"),
+                national_id=item.get("nationalId"),
+                role=item.get("role"),
+                matricule_number=item.get("matriculeNumber"),
+                contact_phone=item.get("contactPhone"),
+                document_url=item.get("documentUrl"),
+                kyc_status=item.get("kycStatus"),
+                submitted_at=item.get("kycSubmittedAt") or item.get("submittedAt") or item.get("createdAt"),
+            )
             for item in users
         ]
 
         patient_items = [
-            {
-                "entityType": "PATIENT",
-                "uid": item.get("id"),
-                "fullName": item.get("fullName") or f"{item.get('firstName', '')} {item.get('lastName', '')}".strip(),
-                "nationalId": item.get("nationalId"),
-                "role": item.get("kycRole") or "PATIENT",
-                "matriculeNumber": item.get("matriculeNumber"),
-                "contactPhone": item.get("contactPhone") or item.get("phone"),
-                "documentUrl": item.get("documentUrl"),
-                "kycStatus": item.get("kycStatus"),
-                "submittedAt": item.get("kycSubmittedAt"),
-            }
+            _build_pending_item(
+                uid=item.get("id"),
+                full_name=item.get("fullName") or f"{item.get('firstName', '')} {item.get('lastName', '')}".strip(),
+                national_id=item.get("nationalId"),
+                role="PATIENT",
+                matricule_number=item.get("matriculeNumber"),
+                contact_phone=item.get("contactPhone") or item.get("phone"),
+                document_url=item.get("documentUrl"),
+                kyc_status=item.get("kycStatus"),
+                submitted_at=item.get("kycSubmittedAt") or item.get("submittedAt") or item.get("createdAt"),
+            )
             for item in patients
         ]
 
-        items = user_items + patient_items
-        return {
-            "count": len(items),
-            "usersCount": len(user_items),
-            "patientsCount": len(patient_items),
-            "items": items,
-            "reviewer": current_admin.get("uid"),
-        }
+        return user_items + patient_items
     except Exception as e:
         logger.error(f"List pending KYC failed: {e}")
         raise HTTPException(
