@@ -55,6 +55,49 @@ class AdminCreateUserRequest(BaseModel):
     isActive: bool = Field(True, description="Whether account is active")
 
 
+async def _update_kyc_for_user_or_patient(
+    uid: str,
+    status: str,
+    current_admin: dict,
+    review_notes: Optional[str] = None,
+    rejection_reason: Optional[str] = None,
+):
+    user_data = await firebase_service.get_user(uid)
+    patient_data = await patient_service.get_patient(uid)
+
+    additional_data = {
+        "kycReviewedBy": current_admin["uid"],
+        "kycReviewedAt": firebase_service.utc_now_iso(),
+    }
+    if review_notes is not None:
+        additional_data["kycReviewNotes"] = review_notes
+    if rejection_reason is not None:
+        additional_data["kycRejectionReason"] = rejection_reason
+
+    result = {}
+
+    if user_data:
+        updated_user = await firebase_service.update_kyc_status(
+            uid,
+            status,
+            additional_data=additional_data,
+        )
+        result["user"] = updated_user
+
+    if patient_data:
+        update_data = {
+            "kycStatus": status,
+            **additional_data,
+        }
+        updated_patient = await patient_service.update_patient(uid, update_data)
+        result["patient"] = updated_patient
+
+    if result:
+        return result
+
+    raise HTTPException(status_code=404, detail=f"User or patient not found: {uid}")
+
+
 def _normalize_pending_timestamp(value):
     if value is None:
         return None
@@ -203,18 +246,15 @@ async def verify_user_kyc(
     current_admin: dict = Depends(require_role("ADMIN")),
 ):
     try:
-        updated = await firebase_service.update_kyc_status(
+        updated = await _update_kyc_for_user_or_patient(
             uid,
             "VERIFIED",
-            additional_data={
-                "kycReviewedBy": current_admin["uid"],
-                "kycReviewedAt": firebase_service.utc_now_iso(),
-                "kycReviewNotes": body.notes,
-            },
+            current_admin=current_admin,
+            review_notes=body.notes,
         )
         return {
             "message": "KYC verified successfully.",
-            "user": updated,
+            **updated,
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -233,18 +273,15 @@ async def reject_user_kyc(
     current_admin: dict = Depends(require_role("ADMIN")),
 ):
     try:
-        updated = await firebase_service.update_kyc_status(
+        updated = await _update_kyc_for_user_or_patient(
             uid,
             "REJECTED",
-            additional_data={
-                "kycReviewedBy": current_admin["uid"],
-                "kycReviewedAt": firebase_service.utc_now_iso(),
-                "kycRejectionReason": body.reason,
-            },
+            current_admin=current_admin,
+            rejection_reason=body.reason,
         )
         return {
             "message": "KYC rejected.",
-            "user": updated,
+            **updated,
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

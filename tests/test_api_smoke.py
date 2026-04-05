@@ -418,13 +418,29 @@ def test_admin_endpoints():
     async def fake_get_user(uid: str):
         if uid == "admin-1":
             return {"uid": uid, "role": "ADMIN", "kycStatus": "VERIFIED_BY_PROVIDER"}
-        return {"uid": uid, "role": "DOCTOR", "kycStatus": "SUBMITTED"}
+        if uid == "user-2":
+            return {"uid": uid, "role": "DOCTOR", "kycStatus": "SUBMITTED"}
+        return None
+
+    async def fake_get_patient(patient_id: str):
+        if patient_id == "PAT-001":
+            return {
+                "id": patient_id,
+                "fullName": "Abraham Imani",
+                "nationalId": "ID-PAT-001",
+                "phone": "+243900000002",
+                "kycStatus": "SUBMITTED",
+            }
+        return None
 
     async def fake_assign_user_role(uid: str, role: str, assigned_by: str):
         return {"uid": uid, "role": role, "roleAssignedBy": assigned_by}
 
     async def fake_update_kyc_status(uid: str, status: str, additional_data=None):
         return {"uid": uid, "kycStatus": status, **(additional_data or {})}
+
+    async def fake_update_patient(patient_id: str, data: Dict[str, Any]):
+        return {"id": patient_id, "kycStatus": data.get("kycStatus"), **data}
 
     async def fake_list_users_by_kyc_status(kyc_status: str, limit: int = 100):
         return [
@@ -462,6 +478,8 @@ def test_admin_endpoints():
                 "services.firebase_service.assign_user_role": fake_assign_user_role,
                 "services.firebase_service.update_kyc_status": fake_update_kyc_status,
                 "services.firebase_service.list_users_by_kyc_status": fake_list_users_by_kyc_status,
+                "services.patient_service.get_patient": fake_get_patient,
+                "services.patient_service.update_patient": fake_update_patient,
                 "services.patient_service.list_patients_by_kyc_status": fake_list_patients_by_kyc_status,
             }
         ):
@@ -499,6 +517,15 @@ def test_admin_endpoints():
             assert len(pending_resp) == 2
             assert {item["role"] for item in pending_resp} == {"DOCTOR", "PATIENT"}
             assert {item["uid"] for item in pending_resp} == {"u1", "pat_1"}
+
+            patient_verify = assert_ok(
+                client.post(
+                    "/admin/users/PAT-001/kyc/verify",
+                    json={"notes": "ok"},
+                    headers={"Authorization": "Bearer token"},
+                )
+            )
+            assert patient_verify["patient"]["kycStatus"] == "VERIFIED"
 
 
 async def run_all():

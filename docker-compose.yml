@@ -1,0 +1,41 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: afyaid-backend
+    env_file:
+      - .env
+    environment:
+      ESIGNET_BASE_URL: http://mock-oidc:9000
+      REDIRECT_URI: http://localhost:8000/auth/callback
+      APP_BASE_URL: http://localhost:8000
+      FRONTEND_URL: http://localhost:3000
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5000,http://127.0.0.1:5000,https://afya-id.web.app
+    ports:
+      - "8000:8080"
+    depends_on:
+      - mock-oidc
+    restart: unless-stopped
+
+  mock-oidc:
+    build:
+      context: ./mock_idp
+    container_name: afyaid-mock-oidc
+    env_file:
+      - .env
+    environment:
+      OIDC_ISSUER: http://localhost:9000
+      OIDC_HOST: 0.0.0.0
+      OIDC_PORT: 9000
+      USERS_FILE: /app/users.json
+      KEYS_DIR: /app/keys
+      OIDC_CLIENT_ID: afya-local-client
+      OIDC_CLIENT_SECRET: afya-local-secret
+      OIDC_REDIRECT_URI: http://localhost:8000/auth/callback
+      APP_BASE_URL: http://localhost:8000
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./mock_idp/keys:/app/keys
+    restart: unless-stopped

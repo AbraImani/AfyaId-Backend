@@ -398,6 +398,15 @@ def run_tests():
     )
     assert doctor_update.status_code == 200
 
+    # Admin KYC verify must work for patient IDs too
+    patient_verify = client.post(
+        f"/admin/users/{patient_id}/kyc/verify",
+        headers=auth_header("token-admin"),
+        json={"notes": "approved for patient record"},
+    )
+    assert patient_verify.status_code == 200
+    assert patient_verify.json().get("patient", {}).get("kycStatus") == "VERIFIED"
+
     # Patient update
     upd = client.patch(
         f"/patients/{patient_id}",
