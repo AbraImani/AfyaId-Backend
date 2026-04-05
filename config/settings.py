@@ -121,7 +121,7 @@ class Settings(BaseSettings):
 
     @property
     def cors_allow_origin_regex(self) -> Optional[str]:
-        """Allow dynamic localhost origins for dev Flutter Web ports only."""
+        """Allow dynamic localhost origins for Flutter Web local ports when enabled."""
         if not self.allow_dev_dynamic_localhost_origins:
             return None
         return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
