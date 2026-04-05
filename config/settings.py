@@ -4,7 +4,7 @@ Provides settings for eSignet OIDC, Firebase, and app-level config.
 """
 
 import os
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from dotenv import load_dotenv
@@ -66,8 +66,17 @@ class Settings(BaseSettings):
         description="Frontend URL for CORS and post-login redirect"
     )
     allowed_origins: str = Field(
-        default="http://localhost:3000,http://localhost:8080,http://localhost:8000",
+        default=(
+            "http://localhost:3000,"
+            "http://localhost:5000,"
+            "http://127.0.0.1:5000,"
+            "https://afya-id.web.app"
+        ),
         description="Comma-separated allowed CORS origins"
+    )
+    allow_dev_dynamic_localhost_origins: bool = Field(
+        default=True,
+        description="Allow localhost/127.0.0.1 with any port in non-production for web testing"
     )
     app_base_url: str = Field(
         default="http://localhost:8000",
@@ -97,9 +106,25 @@ class Settings(BaseSettings):
     def allowed_origins_list(self) -> List[str]:
         """Normalized allowed CORS origins from env + frontend_url."""
         origins = [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+        required_origins = [
+            "http://localhost:3000",
+            "http://localhost:5000",
+            "http://127.0.0.1:5000",
+            "https://afya-id.web.app",
+        ]
+        for origin in required_origins:
+            if origin not in origins:
+                origins.append(origin)
         if self.frontend_url and self.frontend_url not in origins:
             origins.append(self.frontend_url)
         return origins
+
+    @property
+    def cors_allow_origin_regex(self) -> Optional[str]:
+        """Allow dynamic localhost origins for dev Flutter Web ports only."""
+        if not self.allow_dev_dynamic_localhost_origins:
+            return None
+        return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 
     @property
     def is_production(self) -> bool:

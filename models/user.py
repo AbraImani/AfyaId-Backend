@@ -12,11 +12,12 @@ from enum import Enum
 # ── Enums ────────────────────────────────────────────────────────
 
 class UserRole(str, Enum):
-    """Allowed staff roles in the AfyaID system."""
+    """Allowed roles in the AfyaID system."""
     ADMIN = "ADMIN"
     DOCTOR = "DOCTOR"
     HEALTH_WORKER = "HEALTH_WORKER"
     FIRST_RESPONDER = "FIRST_RESPONDER"
+    PATIENT = "PATIENT"
 
 
 class KYCStatus(str, Enum):
@@ -77,16 +78,14 @@ class UserCreateModel(BaseModel):
 # ── KYC Submission Model ────────────────────────────────────────
 
 class KYCSubmission(BaseModel):
-    """Request body for POST /kyc/submit endpoint."""
+    """Shared KYC payload for both staff users and patients."""
+    uid: str = Field(..., description="Entity identifier (user uid or patient id)")
+    fullName: str = Field(..., description="Full legal name")
     nationalId: str = Field(..., description="National ID document number")
-    hospital: Optional[str] = Field(None, description="Hospital name")
-    role: Optional[UserRole] = Field(None, description="Professional role")
-    title: Optional[str] = Field(None, description="Professional title")
-    matriculeNumber: Optional[str] = Field(None, description="Professional matricule")
-    specialty: Optional[str] = Field(None, description="Medical specialty")
-    unitName: Optional[str] = Field(None, description="Hospital unit")
-    contactPhone: Optional[str] = Field(None, description="Contact phone")
-    documentUrl: Optional[str] = Field(None, description="URL to uploaded ID document")
+    role: UserRole = Field(..., description="Role to verify, including PATIENT")
+    matriculeNumber: Optional[str] = Field(None, description="Professional matricule (optional for PATIENT)")
+    contactPhone: str = Field(..., description="Primary contact phone")
+    documentUrl: str = Field(..., description="URL to uploaded identity/professional document")
 
 
 # ── Profile Completion Model ────────────────────────────────────

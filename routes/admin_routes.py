@@ -219,9 +219,46 @@ async def list_pending_kyc(
 ):
     try:
         users = await firebase_service.list_users_by_kyc_status("SUBMITTED", limit=limit)
+        patients = await patient_service.list_patients_by_kyc_status("SUBMITTED", limit=limit)
+
+        user_items = [
+            {
+                "entityType": "USER",
+                "uid": item.get("uid"),
+                "fullName": item.get("fullName"),
+                "nationalId": item.get("nationalId"),
+                "role": item.get("role"),
+                "matriculeNumber": item.get("matriculeNumber"),
+                "contactPhone": item.get("contactPhone"),
+                "documentUrl": item.get("documentUrl"),
+                "kycStatus": item.get("kycStatus"),
+                "submittedAt": item.get("kycSubmittedAt"),
+            }
+            for item in users
+        ]
+
+        patient_items = [
+            {
+                "entityType": "PATIENT",
+                "uid": item.get("id"),
+                "fullName": item.get("fullName") or f"{item.get('firstName', '')} {item.get('lastName', '')}".strip(),
+                "nationalId": item.get("nationalId"),
+                "role": item.get("kycRole") or "PATIENT",
+                "matriculeNumber": item.get("matriculeNumber"),
+                "contactPhone": item.get("contactPhone") or item.get("phone"),
+                "documentUrl": item.get("documentUrl"),
+                "kycStatus": item.get("kycStatus"),
+                "submittedAt": item.get("kycSubmittedAt"),
+            }
+            for item in patients
+        ]
+
+        items = user_items + patient_items
         return {
-            "count": len(users),
-            "items": users,
+            "count": len(items),
+            "usersCount": len(user_items),
+            "patientsCount": len(patient_items),
+            "items": items,
             "reviewer": current_admin.get("uid"),
         }
     except Exception as e:

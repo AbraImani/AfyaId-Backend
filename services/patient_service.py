@@ -306,6 +306,24 @@ async def check_esignet_sub_unique(
         raise
 
 
+async def list_patients_by_kyc_status(kyc_status: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """List patients filtered by KYC status."""
+    try:
+        db = get_db()
+        query = db.collection("patients").where("kycStatus", "==", kyc_status).limit(limit)
+        docs = query.get()
+        return [doc.to_dict() for doc in docs]
+    except Exception as e:
+        if _should_use_local_fallback(e):
+            _activate_local_fallback(e)
+            db = get_db()
+            query = db.collection("patients").where("kycStatus", "==", kyc_status).limit(limit)
+            docs = query.get()
+            return [doc.to_dict() for doc in docs]
+        logger.error(f"Error listing patients by KYC status {kyc_status}: {e}")
+        raise
+
+
 def build_patient_summary(patient_data: Dict[str, Any]) -> Dict[str, Any]:
     """Build a medical summary view for Doctors.
 
