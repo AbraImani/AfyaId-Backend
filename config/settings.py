@@ -30,7 +30,7 @@ class Settings(BaseSettings):
         description="OAuth2 Client Secret (fallback if no private key)"
     )
     redirect_uri: str = Field(
-        default="http://localhost:8000/auth/callback",
+        default="http://localhost:5000/auth/callback",
         description="Redirect URI registered with eSignet"
     )
     private_key_pem_path: str = Field(
