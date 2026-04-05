@@ -102,6 +102,7 @@ Key values:
 - `ALLOW_FIREBASE_LOCAL_FALLBACK=true`
 - `APP_BASE_URL=http://localhost:8000`
 - `FRONTEND_URL=http://localhost:3000`
+- `APP_CALLBACK_URL=https://afya-id.web.app//auth/callback`
 - `ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5000,http://127.0.0.1:5000,https://afya-id.web.app`
 - `ALLOW_DEV_DYNAMIC_LOCALHOST_ORIGINS=true`
 - `APP_SECRET_KEY=change-this-to-a-random-secret-key`
@@ -122,6 +123,13 @@ curl http://localhost:9000/.well-known/openid-configuration
 4. The provider redirects to `GET /auth/callback`.
 5. The backend returns `access_token`, `id_token`, and the user profile.
 6. Use `Authorization: Bearer <access_token>` on protected routes.
+
+For a direct app callback after authentication:
+
+1. Call `GET /auth/login/app` (optional query: `app_callback_url=afyaid://auth/callback`).
+2. Open the returned `authorization_url` in WebView/browser.
+3. After sign-in, backend `/auth/callback` redirects (HTTP 302) to the app callback URL.
+4. Tokens and auth context are sent in the URL fragment (`#access_token=...`) so they are not sent to web servers.
 
 ## Mock accounts
 

@@ -65,6 +65,10 @@ class Settings(BaseSettings):
         default="http://localhost:3000",
         description="Frontend URL for CORS and post-login redirect"
     )
+    app_callback_url: str = Field(
+        default="",
+        description="Default app callback URL (deep link or web URL) for post-login redirect"
+    )
     allowed_origins: str = Field(
         default=(
             "http://localhost:3000,"

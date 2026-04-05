@@ -8,7 +8,8 @@ Endpoints:
 """
 
 import logging
-from typing import Any
+from typing import Any, Optional
+from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -16,6 +17,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from services import auth_service
 from services import firebase_service
 from services import patient_service
+from config.settings import settings
 from dependencies.jwt_bearer import get_current_user
 from models.user import (
     AuthLoginResponse,
@@ -28,6 +30,34 @@ from models.user import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+def _build_app_redirect_url(base_url: str, payload: dict[str, Any]) -> str:
+    """Append auth payload in URL fragment so tokens are not sent to web servers."""
+    parsed = urlsplit(base_url)
+    existing_fragment = dict(parse_qsl(parsed.fragment, keep_blank_values=True))
+
+    normalized_payload: dict[str, str] = {}
+    for key, value in payload.items():
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            normalized_payload[key] = "true" if value else "false"
+        else:
+            normalized_payload[key] = str(value)
+
+    existing_fragment.update(normalized_payload)
+    fragment = urlencode(existing_fragment)
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, parsed.query, fragment))
+
+
+def _resolve_app_callback_url(metadata: dict[str, Any]) -> str:
+    """Resolve callback URL priority: state metadata > APP_CALLBACK_URL > FRONTEND_URL."""
+    return (
+        metadata.get("app_callback_url")
+        or settings.app_callback_url
+        or settings.frontend_url
+    )
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -83,6 +113,66 @@ async def login(redirect: bool = Query(False, description="If true, redirect to 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to build authorization URL: {str(e)}"
+        )
+
+
+@router.get(
+    "/login/app",
+    response_model=AuthLoginResponse,
+    summary="Initiate eSignet Login with App Callback",
+    description=(
+        "Same as /auth/login, but stores app callback metadata in state so "
+        "/auth/callback can redirect back to a mobile app deep link or frontend URL."
+    ),
+)
+async def login_for_app(
+    redirect: bool = Query(False, description="If true, redirect to eSignet"),
+    app_callback_url: Optional[str] = Query(
+        None,
+        description=(
+            "Optional app callback URL (for example afyaid://auth/callback). "
+            "If omitted, backend uses APP_CALLBACK_URL or FRONTEND_URL."
+        ),
+    ),
+):
+    """Start login flow and request redirect back to application after /auth/callback."""
+    callback_url = app_callback_url or settings.app_callback_url or settings.frontend_url
+    parsed_callback = urlparse(callback_url)
+    if not parsed_callback.scheme:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="app_callback_url must include a URL scheme (e.g. afyaid://auth/callback)",
+        )
+
+    try:
+        authorization_url, state, nonce = await auth_service.build_authorization_url()
+
+        await firebase_service.save_auth_state(
+            state=state,
+            nonce=nonce,
+            flow="staff_login",
+            metadata={
+                "redirect_to_app": True,
+                "app_callback_url": callback_url,
+            },
+        )
+
+        logger.info(f"App login initiated. State: {state}; callback: {callback_url}")
+
+        if redirect:
+            return RedirectResponse(url=authorization_url)
+
+        return AuthLoginResponse(
+            authorization_url=authorization_url,
+            state=state,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"App login failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to build authorization URL: {str(e)}",
         )
 
 
@@ -201,8 +291,7 @@ async def callback(
                 },
             )
 
-            return JSONResponse(
-                content={
+            response_payload = {
                     "message": (
                         "Patient identity verified successfully."
                         if identity_status == "VERIFIED"
@@ -212,7 +301,18 @@ async def callback(
                     "identity_status": identity_status,
                     "kyc_status": patient_kyc,
                 }
-            )
+
+            if metadata.get("redirect_to_app"):
+                callback_url = _resolve_app_callback_url(metadata)
+                redirect_payload = {
+                    "identity_status": identity_status,
+                    "kyc_status": patient_kyc,
+                    "patient_id": patient_id,
+                }
+                redirect_url = _build_app_redirect_url(callback_url, redirect_payload)
+                return RedirectResponse(url=redirect_url, status_code=302)
+
+            return JSONResponse(content=response_payload)
 
         # ── Step 4: Determine KYC status from userinfo ───────
         kyc_status = auth_service.determine_kyc_status(userinfo)
@@ -274,6 +374,20 @@ async def callback(
             "profile_complete": profile_complete,
             "message": message,
         }
+
+        if metadata.get("redirect_to_app"):
+            callback_url = _resolve_app_callback_url(metadata)
+            redirect_payload = {
+                "access_token": access_token,
+                "id_token": id_token,
+                "token_type": "Bearer",
+                "uid": sub,
+                "kyc_status": response_data["kyc_status"],
+                "profile_complete": response_data["profile_complete"],
+            }
+            redirect_url = _build_app_redirect_url(callback_url, redirect_payload)
+            logger.info(f"Callback completed for user {sub}. Redirecting to app callback URL.")
+            return RedirectResponse(url=redirect_url, status_code=302)
 
         logger.info(f"Callback completed for user {sub}. KYC: {kyc_status}")
         return JSONResponse(content=response_data)
